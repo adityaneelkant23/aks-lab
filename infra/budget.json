@@ -1,0 +1,27 @@
+{
+  "properties": {
+    "category": "Cost",
+    "amount": 200,
+    "timeGrain": "Monthly",
+    "timePeriod": {
+      "startDate": "2026-06-01T00:00:00Z",
+      "endDate": "2026-12-31T00:00:00Z"
+    },
+    "notifications": {
+      "alert80percent": {
+        "enabled": true,
+        "operator": "GreaterThanOrEqualTo",
+        "threshold": 80,
+        "contactEmails": ["neelkant.aditya5@gmail.com"],
+        "thresholdType": "Actual"
+      },
+      "alert100percent": {
+        "enabled": true,
+        "operator": "GreaterThanOrEqualTo",
+        "threshold": 100,
+        "contactEmails": ["neelkant.aditya5@gmail.com"],
+        "thresholdType": "Actual"
+      }
+    }
+  }
+}
