@@ -93,7 +93,20 @@ module aks 'modules/aks.bicep' = {
 //   }
 // }
 
-// 5. STORAGE - Blob storage with private endpoint
+// 5. AZURE SQL DATABASE (FREE TIER) - private endpoint in snet-restricted
+module sqldb 'modules/sqldb.bicep' = {
+  name: 'deploy-sqldb'
+  scope: rg
+  params: {
+    location: location
+    environment: environment
+    restrictedSubnetId: network.outputs.restrictedSubnetId
+    vnetId: network.outputs.vnetId
+    adminPassword: adminPassword
+  }
+}
+
+// 6. STORAGE - Blob storage with private endpoint
 module storage 'modules/storage.bicep' = {
   name: 'deploy-storage'
   scope: rg
@@ -106,7 +119,7 @@ module storage 'modules/storage.bicep' = {
   }
 }
 
-// 6. APPLICATION GATEWAY - WAF + load balancer (placed in presentation subnet)
+// 7. APPLICATION GATEWAY - WAF + load balancer (placed in presentation subnet)
 module appGateway 'modules/appgateway.bicep' = {
   name: 'deploy-appgateway'
   scope: rg
