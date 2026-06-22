@@ -57,7 +57,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
       }
 
       // SUBNET 3: RESTRICTED
-      // Purpose: Private PaaS services - PostgreSQL and Storage private endpoints
+      // Purpose: Private PaaS services - Storage private endpoints
       // Nothing public touches this subnet - most secure zone
       {
         name: 'snet-restricted'
@@ -67,7 +67,26 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
         }
       }
 
-      // SUBNET 4: AZURE BASTION
+      // SUBNET 4 (NEW): DATABASE
+      // Purpose: PostgreSQL Flexible Server ONLY
+      // PostgreSQL requires its own DELEGATED subnet - cannot share with private endpoints
+      // Delegation = this subnet is handed over exclusively to PostgreSQL service
+      {
+        name: 'snet-database'
+        properties: {
+          addressPrefix: '10.0.6.0/24'
+          delegations: [
+            {
+              name: 'postgresql-delegation'
+              properties: {
+                serviceName: 'Microsoft.DBforPostgreSQL/flexibleServers'
+              }
+            }
+          ]
+        }
+      }
+
+      // SUBNET 5: AZURE BASTION
       // Purpose: Secure RDP/SSH to jump box - NO public IP needed on the VM
       // IMPORTANT: Name MUST be exactly 'AzureBastionSubnet' - Azure enforces this
       // IMPORTANT: Must be /26 or larger - Azure enforces this minimum size
@@ -140,6 +159,7 @@ output vnetName string = vnet.name
 output presentationSubnetId string = '${vnet.id}/subnets/snet-presentation'
 output applicationSubnetId string = '${vnet.id}/subnets/snet-application'
 output restrictedSubnetId string = '${vnet.id}/subnets/snet-restricted'
+output databaseSubnetId string = '${vnet.id}/subnets/snet-database'
 output bastionSubnetId string = '${vnet.id}/subnets/AzureBastionSubnet'
 
 // PostgreSQL DNS zone ID - passed into postgresql module

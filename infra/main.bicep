@@ -79,18 +79,19 @@ module aks 'modules/aks.bicep' = {
   }
 }
 
-// 4. POSTGRESQL - Private database server (placed in restricted subnet)
-module postgresql 'modules/postgresql.bicep' = {
-  name: 'deploy-postgresql'
-  scope: rg
-  params: {
-    location: location
-    environment: environment
-    delegatedSubnetId: network.outputs.restrictedSubnetId
-    privateDnsZoneId: network.outputs.postgreSqlDnsZoneId
-    adminPassword: adminPassword
-  }
-}
+// 4. POSTGRESQL - Commented out: PostgreSQL Flexible Server restricted in southcentralus on free trial
+// To enable: change location to 'eastus' in postgresql module or request quota increase
+// module postgresql 'modules/postgresql.bicep' = {
+//   name: 'deploy-postgresql'
+//   scope: rg
+//   params: {
+//     location: location
+//     environment: environment
+//     delegatedSubnetId: network.outputs.databaseSubnetId
+//     privateDnsZoneId: network.outputs.postgreSqlDnsZoneId
+//     adminPassword: adminPassword
+//   }
+// }
 
 // 5. STORAGE - Blob storage with private endpoint
 module storage 'modules/storage.bicep' = {
