@@ -20,7 +20,6 @@
 
 param location string
 param environment string
-param projectName string
 
 @description('Resource ID of presentation subnet - App Gateway goes here')
 param presentationSubnetId string

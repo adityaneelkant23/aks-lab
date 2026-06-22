@@ -18,6 +18,10 @@ param environment string = 'dev'
 @description('Short project name - used in resource naming (no hyphens, lowercase)')
 param projectName string = 'akslab'
 
+@description('PostgreSQL admin password - passed at deploy time, never stored in files')
+@secure()
+param adminPassword string
+
 // ------ RESOURCE GROUP ------
 // A resource group is a logical container for all your Azure resources.
 // Like a folder that holds everything for this project.
@@ -82,9 +86,9 @@ module postgresql 'modules/postgresql.bicep' = {
   params: {
     location: location
     environment: environment
-    projectName: projectName
     delegatedSubnetId: network.outputs.restrictedSubnetId
     privateDnsZoneId: network.outputs.postgreSqlDnsZoneId
+    adminPassword: adminPassword
   }
 }
 
@@ -108,7 +112,6 @@ module appGateway 'modules/appgateway.bicep' = {
   params: {
     location: location
     environment: environment
-    projectName: projectName
     presentationSubnetId: network.outputs.presentationSubnetId
   }
 }

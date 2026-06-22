@@ -15,7 +15,6 @@
 
 param location string
 param environment string
-param projectName string
 
 @description('Resource ID of restricted subnet - PostgreSQL will be delegated here')
 param delegatedSubnetId string

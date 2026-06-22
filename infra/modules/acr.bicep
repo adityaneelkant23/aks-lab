@@ -11,8 +11,14 @@
 //   Pattern: acr{project}{environment} --> acrakslabdev
 // =============================================================
 
+@minLength(5)
+@maxLength(50)
 param location string
+
+@minLength(1)
 param environment string
+
+@minLength(1)
 param projectName string
 
 // ------ AZURE CONTAINER REGISTRY ------

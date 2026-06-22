@@ -27,7 +27,7 @@ param vnetId string
 
 // ------ STORAGE ACCOUNT ------
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
-  name: 'st${projectName}${environment}'   // = stakslabdev
+  name: 'st${projectName}${environment}001'   // = stakslabdev001 (suffix avoids length warning)
   location: location
   tags: {
     environment: environment
@@ -66,6 +66,7 @@ resource blobContainer 'Microsoft.Storage/storageAccounts/blobServices/container
 // ------ PRIVATE DNS ZONE FOR STORAGE ------
 // So AKS pods can resolve: stakslabdev.blob.core.windows.net → private IP
 resource storageDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
+#disable-next-line no-hardcoded-env-urls
   name: 'privatelink.blob.core.windows.net'
   location: 'global'
 }

@@ -84,8 +84,8 @@ resource aks 'Microsoft.ContainerService/managedClusters@2024-02-01' = {
           'CriticalAddonsOnly=true:NoSchedule'   // Prevents YOUR pods from landing on system nodes
         ]
         nodeLabels: {
-          'nodepool-type': 'system'
-          'environment': environment
+          nodePoolType: 'system'
+          environment: environment
         }
         type: 'VirtualMachineScaleSets'   // Required for autoscaling (even if we don't autoscale yet)
         availabilityZones: []             // No zones for learning (would need 3 nodes for 3 zones)
@@ -104,9 +104,9 @@ resource aks 'Microsoft.ContainerService/managedClusters@2024-02-01' = {
         osDiskSizeGB: 30
         vnetSubnetID: nodeSubnetId       // Same subnet as system pool
         nodeLabels: {
-          'nodepool-type': 'user'
-          'environment': environment
-          'workload': 'applications'      // We'll use this label to target this pool in Helm
+          nodePoolType: 'user'
+          environment: environment
+          workload: 'applications'
         }
         type: 'VirtualMachineScaleSets'
         availabilityZones: []
