@@ -82,44 +82,32 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
   }
 }
 
-// ------ AZURE BASTION ------
-// Bastion = managed jump service. Connect to your Windows jump box VM
-// via browser (HTTPS) without exposing RDP port 3389 to internet.
-// Needs a Public IP (for users to reach it) but the VM itself stays private.
-
-resource bastionPip 'Microsoft.Network/publicIPAddresses@2023-09-01' = {
-  name: 'pip-bastion-aks-lab-${environment}'
-  location: location
-  sku: {
-    name: 'Standard'   // Must be Standard for Bastion
-  }
-  properties: {
-    publicIPAllocationMethod: 'Static'
-  }
-}
-
-resource bastion 'Microsoft.Network/bastionHosts@2023-09-01' = {
-  name: 'bas-aks-lab-${environment}'
-  location: location
-  sku: {
-    name: 'Basic'    // Basic tier is cheapest - enough for learning
-  }
-  properties: {
-    ipConfigurations: [
-      {
-        name: 'ipconfig'
-        properties: {
-          subnet: {
-            id: '${vnet.id}/subnets/AzureBastionSubnet'
-          }
-          publicIPAddress: {
-            id: bastionPip.id
-          }
-        }
-      }
-    ]
-  }
-}
+// ------ AZURE BASTION (COMMENTED OUT - DEPLOY ONLY WHEN NEEDED) ------
+// Cost: ~$4.56/day for Basic tier. Uncomment when you need RDP to jump box.
+// Bastion = secure RDP without exposing port 3389 to internet.
+// For now, use: az aks command invoke (free, no jump box needed for kubectl)
+//
+// resource bastionPip 'Microsoft.Network/publicIPAddresses@2023-09-01' = {
+//   name: 'pip-bastion-aks-lab-${environment}'
+//   location: location
+//   sku: { name: 'Standard' }
+//   properties: { publicIPAllocationMethod: 'Static' }
+// }
+//
+// resource bastion 'Microsoft.Network/bastionHosts@2023-09-01' = {
+//   name: 'bas-aks-lab-${environment}'
+//   location: location
+//   sku: { name: 'Basic' }
+//   properties: {
+//     ipConfigurations: [{
+//       name: 'ipconfig'
+//       properties: {
+//         subnet: { id: '${vnet.id}/subnets/AzureBastionSubnet' }
+//         publicIPAddress: { id: bastionPip.id }
+//       }
+//     }]
+//   }
+// }
 
 // ------ PRIVATE DNS ZONE FOR POSTGRESQL ------
 // PostgreSQL Flexible Server in delegated subnet needs a private DNS zone

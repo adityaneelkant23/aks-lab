@@ -76,7 +76,7 @@ resource aks 'Microsoft.ContainerService/managedClusters@2024-02-01' = {
         name: 'system'
         mode: 'System'                    // System mode = runs system pods, tainted for user pods
         count: 1                          // 1 node for system pool (saves cost)
-        vmSize: 'Standard_B2s'           // 2 vCPUs, 4 GB RAM - cheapest that AKS accepts
+        vmSize: 'Standard_D2als_v6'      // 2 vCPUs, 4 GB RAM - cheapest available in southcentralus free trial
         osType: 'Linux'
         osDiskSizeGB: 30                 // Minimum OS disk
         vnetSubnetID: nodeSubnetId       // Gets IP from snet-application
@@ -94,15 +94,16 @@ resource aks 'Microsoft.ContainerService/managedClusters@2024-02-01' = {
 
       // USER NODE POOL
       // Purpose: runs YOUR application pods (hello-world, nginx ingress etc)
-      // 2 nodes so hello-world can run 1 replica per node (HA even at small scale)
+      // 1 node only - limited by free trial vCPU quota (4 total, 2 used by system)
+      // In production/office: increase to 2+ nodes for true HA across nodes
       {
         name: 'user'
-        mode: 'User'                      // User mode = meant for application workloads
-        count: 2                          // 2 nodes for HA - hello-world pod 1 on node 1, pod 2 on node 2
-        vmSize: 'Standard_B2s'           // Same cheap size - fine for Hello World
+        mode: 'User'
+        count: 1                          // 1 node (quota constraint - upgrade to 2 at office)
+        vmSize: 'Standard_D2als_v6'
         osType: 'Linux'
         osDiskSizeGB: 30
-        vnetSubnetID: nodeSubnetId       // Same subnet as system pool
+        vnetSubnetID: nodeSubnetId
         nodeLabels: {
           nodePoolType: 'user'
           environment: environment
