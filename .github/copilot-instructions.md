@@ -10,6 +10,12 @@
 This is a step-by-step AKS learning project. Guide ONE step at a time. Wait for confirmation before next step.
 Repo: https://github.com/adityaneelkant23/aks-lab
 
+## Azure Account
+- Subscription name: Azure subscription 1
+- Subscription ID: c08990f3-f943-4db9-af75-d819675d8971
+- Region: southcentralus
+- az login: DONE
+
 ## Tools already installed (DO NOT reinstall)
 - Azure CLI 2.87.0 (32-bit, works fine)
 - Git 2.54.0

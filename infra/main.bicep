@@ -1,0 +1,121 @@
+// =============================================================
+// main.bicep - Master orchestrator for AKS Lab infrastructure
+// Deploys at SUBSCRIPTION scope so it can create the Resource Group
+// =============================================================
+
+targetScope = 'subscription'
+
+// ------ PARAMETERS ------
+// Parameters are inputs you can change without editing the file
+
+@description('Azure region where all resources will be created')
+param location string = 'southcentralus'
+
+@description('Environment name - used in resource naming')
+@allowed(['dev', 'test', 'prod'])
+param environment string = 'dev'
+
+@description('Short project name - used in resource naming (no hyphens, lowercase)')
+param projectName string = 'akslab'
+
+// ------ RESOURCE GROUP ------
+// A resource group is a logical container for all your Azure resources.
+// Like a folder that holds everything for this project.
+// Naming: rg-{project}-{environment} --> rg-aks-lab-dev
+
+resource rg 'Microsoft.Resources/resourceGroups@2023-07-01' = {
+  name: 'rg-aks-lab-${environment}'
+  location: location
+  tags: {
+    environment: environment
+    project: projectName
+    managedBy: 'bicep'
+    owner: 'adityaneelkant23'
+  }
+}
+
+// ------ MODULES ------
+// Each module is a separate Bicep file responsible for one Azure resource.
+// 'scope: rg' means "deploy this inside the resource group above".
+// 'params' passes values INTO the module file.
+
+// 1. NETWORK - VNet with 4 subnets (must be first - others depend on subnet IDs)
+module network 'modules/network.bicep' = {
+  name: 'deploy-network'
+  scope: rg
+  params: {
+    location: location
+    environment: environment
+  }
+}
+
+// 2. ACR - Azure Container Registry (stores your Docker images)
+module acr 'modules/acr.bicep' = {
+  name: 'deploy-acr'
+  scope: rg
+  params: {
+    location: location
+    environment: environment
+    projectName: projectName
+  }
+}
+
+// 3. AKS - Private Kubernetes Cluster
+// Needs the application subnet ID from network module (Azure CNI puts pods in this subnet)
+// Needs ACR ID so AKS can pull images from it
+module aks 'modules/aks.bicep' = {
+  name: 'deploy-aks'
+  scope: rg
+  params: {
+    location: location
+    environment: environment
+    projectName: projectName
+    nodeSubnetId: network.outputs.applicationSubnetId
+    acrId: acr.outputs.acrId
+  }
+}
+
+// 4. POSTGRESQL - Private database server (placed in restricted subnet)
+module postgresql 'modules/postgresql.bicep' = {
+  name: 'deploy-postgresql'
+  scope: rg
+  params: {
+    location: location
+    environment: environment
+    projectName: projectName
+    delegatedSubnetId: network.outputs.restrictedSubnetId
+    privateDnsZoneId: network.outputs.postgreSqlDnsZoneId
+  }
+}
+
+// 5. STORAGE - Blob storage with private endpoint
+module storage 'modules/storage.bicep' = {
+  name: 'deploy-storage'
+  scope: rg
+  params: {
+    location: location
+    environment: environment
+    projectName: projectName
+    restrictedSubnetId: network.outputs.restrictedSubnetId
+    vnetId: network.outputs.vnetId
+  }
+}
+
+// 6. APPLICATION GATEWAY - WAF + load balancer (placed in presentation subnet)
+module appGateway 'modules/appgateway.bicep' = {
+  name: 'deploy-appgateway'
+  scope: rg
+  params: {
+    location: location
+    environment: environment
+    projectName: projectName
+    presentationSubnetId: network.outputs.presentationSubnetId
+  }
+}
+
+// ------ OUTPUTS ------
+// These values are printed after deployment - useful for next steps
+
+output resourceGroupName string = rg.name
+output aksClusterName string = aks.outputs.aksClusterName
+output acrLoginServer string = acr.outputs.acrLoginServer
