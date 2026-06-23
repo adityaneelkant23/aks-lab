@@ -1,0 +1,32 @@
+replicaCount: 2
+
+image:
+  repository: acrakslabdev.azurecr.io/hello-world
+  tag: "v1"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: true
+  className: nginx
+  host: hello-world.internal
+  path: /
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi
+
+# Run on user node pool (not system pool)
+nodeSelector:
+  nodePoolType: user
+
+env:
+  APP_VERSION: "v1"

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: hello-world
+description: Hello World Python Flask app for AKS learning lab
+type: application
+version: 0.1.0
+appVersion: "v1"
