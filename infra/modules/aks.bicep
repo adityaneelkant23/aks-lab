@@ -1,18 +1,24 @@
 // =============================================================
-// aks.bicep - Private AKS Cluster with Azure CNI
+// aks.bicep - Private AKS Cluster with Azure CNI Overlay + Cilium
 // =============================================================
 // AKS = Azure Kubernetes Service (managed Kubernetes)
-// Azure manages the control plane (API server, etcd, scheduler)
-// You manage the worker nodes (node pools)
+//
+// KEY CHANGES from previous version:
+//   networkPluginMode: overlay  → pods get IPs from 192.168.0.0/16 (NOT VNet)
+//   networkDataplane: cilium    → Cilium replaces kube-proxy + adds eBPF networking
+//   networkPolicy: cilium       → Cilium enforces pod-to-pod firewall rules
+//
+// WHY CILIUM? (replaces Illumio in your office context)
+//   - eBPF-based: hooks into Linux kernel directly, no iptables overhead
+//   - NetworkPolicy enforcement: microsegmentation between pods/namespaces
+//   - Identity-aware: policies based on pod labels, not just IP addresses
+//   - Observability: Hubble UI shows all pod-to-pod traffic flows
+//   - FREE: built into AKS, no license cost (unlike Illumio)
+//   - Cyber teams love it: L3/L4/L7 policies, encryption, audit trail
 //
 // Our cluster has 2 node pools:
 //   system pool  - runs Kubernetes system pods (coredns, metrics etc)
-//                  tainted so your app pods DON'T land here
-//   user pool    - runs YOUR application pods (hello-world etc)
-//                  this is where business workloads go
-//
-// Azure CNI: pods get real IPs from snet-application subnet
-// Private cluster: API server has no public IP - only reachable from inside VNet
+//   user pool    - runs YOUR application pods
 // =============================================================
 
 param location string
@@ -54,15 +60,20 @@ resource aks 'Microsoft.ContainerService/managedClusters@2024-02-01' = {
       enablePrivateCluster: true
     }
 
-    // ------ NETWORK - AZURE CNI ------
-    // This is the most important section for your learning
+    // ------ NETWORK - AZURE CNI OVERLAY + CILIUM ------
+    // This is the most important section
     networkProfile: {
-      networkPlugin: 'azure'          // 'azure' = Azure CNI (real VNet IPs for pods)
-                                      // 'kubenet' = overlay (fake IPs) - we don't use this
-      networkPolicy: 'azure'          // Controls which pods can talk to which (firewall between pods)
-      serviceCidr: '172.16.0.0/16'   // Internal Kubernetes service IPs (NOT in your VNet)
-                                      // These are virtual IPs for Services - must not overlap VNet
-      dnsServiceIP: '172.16.0.10'    // CoreDNS service IP - must be inside serviceCidr
+      networkPlugin: 'azure'            // 'azure' = Azure CNI (required for Cilium)
+      networkPluginMode: 'overlay'      // NEW: pods get IPs from podCidr, NOT from VNet subnet
+                                        // Nodes = 10.68.20.x (VNet), Pods = 192.168.x.x (overlay)
+      networkDataplane: 'cilium'        // NEW: Cilium handles all packet forwarding (replaces kube-proxy)
+                                        // Uses eBPF = faster, lower CPU, kernel-level networking
+      networkPolicy: 'cilium'           // NEW: Cilium enforces NetworkPolicy rules between pods
+                                        // This is what replaces Illumio for microsegmentation
+      podCidr: '192.168.0.0/16'        // NEW: Pod overlay CIDR - pods get IPs from here
+                                        // Completely separate from VNet - no IP exhaustion
+      serviceCidr: '10.0.0.0/16'       // Internal Kubernetes service IPs (virtual, not in VNet)
+      dnsServiceIP: '10.0.0.10'        // CoreDNS IP - must be inside serviceCidr
     }
 
     // ------ NODE POOLS ------

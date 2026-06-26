@@ -1,14 +1,20 @@
 // =============================================================
-// network.bicep - Virtual Network with 4 subnets
+// network.bicep - Virtual Network with subnets
 // =============================================================
 // VNet = your private network in Azure (like your office LAN)
 // Subnets = segments of that network, each with a purpose
 //
-// Subnet plan (southcentralus):
-//   snet-presentation  10.0.1.0/24  (256 IPs) - Application Gateway + WAF
-//   snet-application   10.0.2.0/23  (512 IPs) - AKS nodes + pods (Azure CNI needs more IPs)
-//   snet-restricted    10.0.4.0/24  (256 IPs) - PostgreSQL + Storage private endpoints
-//   AzureBastionSubnet 10.0.5.0/26  (64 IPs)  - Azure Bastion (name must be exact)
+// Subnet plan (Azure CNI Overlay - pods get IPs from overlay, NOT from VNet):
+//   snet-presentation  10.68.10.0/24  (256 IPs) - Application Gateway + WAF
+//   snet-application   10.68.20.0/24  (256 IPs) - AKS NODES ONLY (CNI Overlay: pods use 192.168.0.0/16)
+//   snet-restricted    10.68.30.0/24  (256 IPs) - Storage/SQL private endpoints
+//   AzureBastionSubnet 10.68.40.0/26  (64 IPs)  - Azure Bastion (name must be exact)
+//   snet-database      10.68.50.0/24  (256 IPs) - Reserved for future DB use
+//
+// KEY DIFFERENCE from Azure CNI (flat):
+//   Azure CNI Flat:    pod IPs come from VNet subnet (exhausts VNet IPs fast)
+//   Azure CNI Overlay: pod IPs come from separate Pod CIDR 192.168.0.0/16
+//                      node subnet only needs IPs for NODES (much smaller)
 // =============================================================
 
 param location string
@@ -25,7 +31,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
   properties: {
     addressSpace: {
       addressPrefixes: [
-        '10.0.0.0/16'   // 65,536 total IPs available across all subnets
+        '10.68.0.0/16'   // 65,536 total IPs available across all subnets
       ]
     }
 
@@ -34,47 +40,53 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
       // SUBNET 1: PRESENTATION
       // Purpose: Application Gateway + WAF sits here
       // Traffic from internet hits App Gateway first (your front door)
-      // /24 = 256 IPs. App Gateway needs at least 1 IP per instance + buffer.
       {
         name: 'snet-presentation'
         properties: {
-          addressPrefix: '10.0.1.0/24'
+          addressPrefix: '10.68.10.0/24'
         }
       }
 
-      // SUBNET 2: APPLICATION
-      // Purpose: AKS worker nodes AND pods live here (Azure CNI mode)
-      // Azure CNI = every pod gets a REAL VNet IP (not a hidden overlay IP)
-      // This is why it needs /23 (512 IPs) - nodes + up to 30 pods each
-      // Also: Windows jump box VM will live here
+      // SUBNET 2: APPLICATION (AKS NODES ONLY - CNI Overlay)
+      // Purpose: AKS WORKER NODES get IPs here (NOT pods anymore)
+      // With Azure CNI Overlay: nodes = 10.68.20.x, pods = 192.168.x.x (overlay)
+      // /24 is now ENOUGH because pods no longer consume VNet IPs
+      // This is the key benefit of Overlay mode vs flat CNI
       {
         name: 'snet-application'
         properties: {
-          addressPrefix: '10.0.2.0/23'
-          // privateEndpointNetworkPolicies disabled = allows private endpoints in this subnet
+          addressPrefix: '10.68.20.0/24'
           privateEndpointNetworkPolicies: 'Disabled'
         }
       }
 
       // SUBNET 3: RESTRICTED
-      // Purpose: Private PaaS services - Storage private endpoints
+      // Purpose: Private PaaS services - Storage/SQL private endpoints
       // Nothing public touches this subnet - most secure zone
       {
         name: 'snet-restricted'
         properties: {
-          addressPrefix: '10.0.4.0/24'
+          addressPrefix: '10.68.30.0/24'
           privateEndpointNetworkPolicies: 'Disabled'
         }
       }
 
-      // SUBNET 4 (NEW): DATABASE
-      // Purpose: PostgreSQL Flexible Server ONLY
-      // PostgreSQL requires its own DELEGATED subnet - cannot share with private endpoints
-      // Delegation = this subnet is handed over exclusively to PostgreSQL service
+      // SUBNET 4: AZURE BASTION
+      // IMPORTANT: Name MUST be exactly 'AzureBastionSubnet'
+      // IMPORTANT: Must be /26 or larger
+      {
+        name: 'AzureBastionSubnet'
+        properties: {
+          addressPrefix: '10.68.40.0/26'
+        }
+      }
+
+      // SUBNET 5: DATABASE (reserved for future use)
+      // PostgreSQL delegation kept for office deployment reference
       {
         name: 'snet-database'
         properties: {
-          addressPrefix: '10.0.6.0/24'
+          addressPrefix: '10.68.50.0/24'
           delegations: [
             {
               name: 'postgresql-delegation'
@@ -83,17 +95,6 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
               }
             }
           ]
-        }
-      }
-
-      // SUBNET 5: AZURE BASTION
-      // Purpose: Secure RDP/SSH to jump box - NO public IP needed on the VM
-      // IMPORTANT: Name MUST be exactly 'AzureBastionSubnet' - Azure enforces this
-      // IMPORTANT: Must be /26 or larger - Azure enforces this minimum size
-      {
-        name: 'AzureBastionSubnet'
-        properties: {
-          addressPrefix: '10.0.5.0/26'
         }
       }
 

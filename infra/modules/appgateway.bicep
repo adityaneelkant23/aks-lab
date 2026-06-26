@@ -138,7 +138,7 @@ resource appGateway 'Microsoft.Network/applicationGateways@2023-09-01' = {
             {
               // Placeholder - replace with actual NGINX Ingress internal IP after deployment
               // Run: kubectl get svc -n ingress-nginx
-              ipAddress: '10.0.2.100'
+              ipAddress: '10.68.20.100'  // Internal NGINX LB IP (from snet-application)
             }
           ]
         }

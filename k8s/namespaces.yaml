@@ -1,0 +1,35 @@
+# =============================================================
+# namespaces.yaml - Kubernetes Namespaces
+# =============================================================
+# Namespace = a virtual "room" inside the cluster
+# Pods in different namespaces are isolated from each other
+# (unless you explicitly allow traffic with Cilium NetworkPolicy)
+#
+# Our namespaces:
+#   ns-ingress   = NGINX Ingress Controller lives here
+#   ns-apps      = Your application workloads live here (hello-world etc)
+#
+# In your office (BHP/Woodside):
+#   ns-ingress       = shared ingress team manages
+#   ns-apps          = your app team deploys here
+#   ns-monitoring    = Prometheus/Grafana (future)
+#   ns-documentum    = Documentum workloads (future)
+# =============================================================
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ns-ingress
+  labels:
+    name: ns-ingress
+    purpose: ingress-controller
+    managed-by: bicep-lab
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ns-apps
+  labels:
+    name: ns-apps
+    purpose: application-workloads
+    managed-by: bicep-lab
