@@ -153,7 +153,28 @@ resource appGateway 'Microsoft.Network/applicationGateways@2023-09-01' = {
           protocol: 'Http'
           requestTimeout: 30
           pickHostNameFromBackendAddress: false
-          hostName: 'hello-world.local'   // Must match NGINX Ingress host rule
+          hostName: 'hello-world.internal'   // Must match NGINX Ingress host rule
+          probe: {
+            id: resourceId('Microsoft.Network/applicationGateways/probes', 'agw-aks-lab-${environment}', 'nginx-probe')
+          }
+        }
+      }
+    ]
+
+    probes: [
+      {
+        name: 'nginx-probe'
+        properties: {
+          protocol: 'Http'
+          host: '10.68.20.100'
+          path: '/'
+          interval: 30
+          timeout: 30
+          unhealthyThreshold: 3
+          // Accept 200-404: NGINX returns 404 for unmatched hosts (healthy behavior)
+          match: {
+            statusCodes: [ '200-404' ]
+          }
         }
       }
     ]
