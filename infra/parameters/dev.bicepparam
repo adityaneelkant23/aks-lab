@@ -24,7 +24,4 @@ param environment = 'dev'
 // Short project name - used in resource names (no hyphens, lowercase)
 // Results in names like: aks-akslab-dev, acrakslabdev, psql-aks-lab-dev
 param projectName = 'akslab'
-// SECURITY: adminPassword is NOT stored here - it is passed at deploy time via CLI
-// Deploy command will include: --parameters adminPassword='YourSecurePassword!'
-// Never commit a real password to GitHub
-param adminPassword = ''
+// adminPassword removed - SQL/PostgreSQL modules commented out (southcentralus restriction)

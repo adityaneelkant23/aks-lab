@@ -18,9 +18,7 @@ param environment string = 'dev'
 @description('Short project name - used in resource naming (no hyphens, lowercase)')
 param projectName string = 'akslab'
 
-@description('PostgreSQL admin password - passed at deploy time, never stored in files')
-@secure()
-param adminPassword string
+// adminPassword removed - SQL/PostgreSQL modules are commented out (southcentralus restriction)
 
 // ------ RESOURCE GROUP ------
 // A resource group is a logical container for all your Azure resources.
@@ -82,24 +80,14 @@ module aks 'modules/aks.bicep' = {
 // 3b. GRANT AKS IDENTITY - Network Contributor on VNet
 // WHY: AKS managed identity needs to read subnets + create internal Load Balancers
 //      Without this, NGINX internal LB (type=LoadBalancer) fails with 403 Forbidden
-//      Error seen: "does not have authorization to perform action
-//                   Microsoft.Network/virtualNetworks/subnets/read"
-// Network Contributor role ID: 4d97b98b-1d4f-4787-a291-c67834d212e7
-// Scope to the VNet resource (not whole RG) - principle of least privilege
-// AKS only needs rights on this specific VNet to create internal LBs
-var vnetResourceId = network.outputs.vnetId
-resource vnetRef 'Microsoft.Network/virtualNetworks@2023-09-01' existing = {
-  name: 'vnet-${projectName}-${environment}'
+// Uses a separate module because main.bicep is subscription-scoped but role
+// assignments on a VNet must be deployed at resource group scope.
+module aksRbac 'modules/rbac.bicep' = {
+  name: 'deploy-aks-rbac'
   scope: rg
-}
-
-resource aksNetworkContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(aks.outputs.aksId, vnetResourceId, 'network-contributor')
-  scope: vnetRef
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4d97b98b-1d4f-4787-a291-c67834d212e7')
-    principalId: aks.outputs.aksManagedIdentityPrincipalId
-    principalType: 'ServicePrincipal'
+  params: {
+    aksIdentityPrincipalId: aks.outputs.aksManagedIdentityPrincipalId
+    vnetName: network.outputs.vnetName
   }
 }
 
