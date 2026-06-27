@@ -1,0 +1,153 @@
+# =============================================================
+# deploy.yml - GitHub Actions CI/CD Pipeline
+# =============================================================
+# WHAT THIS DOES:
+#   Every time you push code to main branch:
+#   1. Builds a new Docker image from app/
+#   2. Pushes it to Azure Container Registry (ACR)
+#   3. Deploys it to AKS using Helm
+#
+# RESULT:
+#   You change app.py → git push → app updates automatically
+#   No manual docker build, docker push, or kubectl needed
+#
+# SECRETS REQUIRED (set in GitHub → Settings → Secrets):
+#   AZURE_CLIENT_ID      - Service principal app ID
+#   AZURE_TENANT_ID      - Your Azure tenant ID
+#   AZURE_SUBSCRIPTION_ID - Your subscription ID
+# =============================================================
+
+name: Build and Deploy to AKS
+
+# TRIGGER: Run this pipeline when code is pushed to main branch
+# Only runs when files in these paths change (saves pipeline minutes)
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'app/**'           # Python app code changed
+      - 'helm/**'          # Helm chart changed
+      - '.github/workflows/**'  # Pipeline itself changed
+
+# VARIABLES: Used throughout the pipeline
+env:
+  ACR_NAME: acrakslabdev                          # Your ACR name
+  ACR_LOGIN_SERVER: acrakslabdev.azurecr.io       # ACR URL
+  IMAGE_NAME: hello-world                          # Docker image name
+  AKS_RESOURCE_GROUP: rg-aks-lab-dev             # AKS resource group
+  AKS_CLUSTER_NAME: aks-akslab-dev               # AKS cluster name
+  HELM_RELEASE_NAME: hello-world                  # Helm release name
+  HELM_NAMESPACE: ns-apps                         # Kubernetes namespace
+
+jobs:
+  # ============================================================
+  # JOB 1: BUILD AND PUSH DOCKER IMAGE
+  # ============================================================
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest   # GitHub provides this VM for free
+
+    # OUTPUT: Pass the image tag to the deploy job
+    outputs:
+      image-tag: ${{ steps.meta.outputs.version }}
+
+    steps:
+      # Step 1: Download your code onto the GitHub runner VM
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Generate image tag from git commit SHA
+      # e.g. sha-abc1234 - unique per commit, traceable
+      - name: Generate image tag
+        id: meta
+        run: |
+          echo "version=sha-$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+          echo "Image tag will be: sha-$(echo ${{ github.sha }} | cut -c1-7)"
+
+      # Step 3: Login to Azure using service principal
+      # Uses secrets stored in GitHub (never in code)
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # Step 4: Login to ACR so Docker can push images
+      - name: Login to ACR
+        run: az acr login --name ${{ env.ACR_NAME }}
+
+      # Step 5: Build Docker image from app/ folder
+      # Tags it with both the commit SHA and 'latest'
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t ${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }} \
+            -t ${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:latest \
+            app/
+
+      # Step 6: Push image to ACR
+      - name: Push to ACR
+        run: |
+          docker push ${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
+          docker push ${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:latest
+
+  # ============================================================
+  # JOB 2: DEPLOY TO AKS
+  # Runs only after build job succeeds
+  # ============================================================
+  deploy:
+    name: Deploy to AKS
+    runs-on: ubuntu-latest
+    needs: build   # Wait for build job to complete first
+
+    steps:
+      # Step 1: Download code (need Helm chart files)
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Login to Azure
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # Step 3: Get AKS credentials so kubectl/helm can talk to cluster
+      # Since cluster is private, uses az aks command invoke pattern
+      - name: Get AKS credentials
+        run: |
+          az aks get-credentials \
+            --resource-group ${{ env.AKS_RESOURCE_GROUP }} \
+            --name ${{ env.AKS_CLUSTER_NAME }} \
+            --overwrite-existing
+
+      # Step 4: Install Helm
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      # Step 5: Deploy using Helm
+      # helm upgrade --install = install if not exists, upgrade if exists
+      # --set image.tag = uses the new image tag from build job
+      - name: Deploy with Helm
+        run: |
+          az aks command invoke \
+            --resource-group ${{ env.AKS_RESOURCE_GROUP }} \
+            --name ${{ env.AKS_CLUSTER_NAME }} \
+            --command "helm upgrade --install ${{ env.HELM_RELEASE_NAME }} /helm/${{ env.HELM_RELEASE_NAME }} \
+              --namespace ${{ env.HELM_NAMESPACE }} \
+              --set image.tag=${{ needs.build.outputs.image-tag }} \
+              --wait" \
+            --file helm/hello-world
+
+      # Step 6: Verify deployment succeeded
+      - name: Verify deployment
+        run: |
+          az aks command invoke \
+            --resource-group ${{ env.AKS_RESOURCE_GROUP }} \
+            --name ${{ env.AKS_CLUSTER_NAME }} \
+            --command "kubectl rollout status deployment/${{ env.HELM_RELEASE_NAME }} -n ${{ env.HELM_NAMESPACE }}"
