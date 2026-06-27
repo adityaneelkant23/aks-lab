@@ -171,3 +171,4 @@ resource acrPullRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
 output aksClusterName string = aks.name
 output aksId string = aks.id
 output aksFqdn string = aks.properties.privateFQDN   // Private FQDN of the API server
+output aksManagedIdentityPrincipalId string = aks.identity.principalId  // For role assignments
