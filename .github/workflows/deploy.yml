@@ -125,18 +125,20 @@ jobs:
         uses: azure/setup-helm@v4
 
       # Step 5: Deploy using Helm
-      # helm upgrade --install = install if not exists, upgrade if exists
-      # --set image.tag = uses the new image tag from build job
+      # Generate manifest locally, then send single file to private cluster
+      # az aks command invoke --file only accepts one file (not a directory)
       - name: Deploy with Helm
         run: |
+          helm template ${{ env.HELM_RELEASE_NAME }} helm/${{ env.HELM_RELEASE_NAME }} \
+            --namespace ${{ env.HELM_NAMESPACE }} \
+            --set image.tag=${{ needs.build.outputs.image-tag }} \
+            > /tmp/manifest.yaml
+
           az aks command invoke \
             --resource-group ${{ env.AKS_RESOURCE_GROUP }} \
             --name ${{ env.AKS_CLUSTER_NAME }} \
-            --command "helm upgrade --install ${{ env.HELM_RELEASE_NAME }} /helm/${{ env.HELM_RELEASE_NAME }} \
-              --namespace ${{ env.HELM_NAMESPACE }} \
-              --set image.tag=${{ needs.build.outputs.image-tag }} \
-              --wait" \
-            --file helm/hello-world
+            --command "kubectl apply -f manifest.yaml" \
+            --file /tmp/manifest.yaml
 
       # Step 6: Verify deployment succeeded
       - name: Verify deployment
