@@ -17,7 +17,7 @@ def index():
 <head>
   <title>AKS Hello World</title>
   <style>
-    body {{ font-family: Arial, sans-serif; background: #107c10; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }}
+    body {{ font-family: Arial, sans-serif; background: #5c2d91; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }}
     .card {{ background: rgba(255,255,255,0.15); border-radius: 12px; padding: 40px 60px; text-align: center; box-shadow: 0 8px 32px rgba(0,0,0,0.3); }}
     h1 {{ font-size: 2.5rem; margin-bottom: 10px; }}
     .badge {{ background: rgba(255,255,255,0.25); border-radius: 6px; padding: 6px 14px; margin: 6px; display: inline-block; font-size: 0.95rem; }}
